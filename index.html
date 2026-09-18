@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#09090b"><link rel="manifest" href="manifest.json"><title>My Music</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#09090b;color:#f7f7f8;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+button,input{font:inherit}button{border:0;color:inherit;cursor:pointer}header{padding:18px 18px 10px;position:sticky;top:0;background:#09090bf2;backdrop-filter:blur(18px);z-index:4}
+h1{margin:0;font-size:28px}.sub{color:#92929e;font-size:13px;margin-top:3px}main{max-width:760px;margin:auto;padding:8px 18px 210px}
+.search{background:#19191f;border:1px solid #292931;border-radius:14px;padding:13px 15px;color:#fff;width:100%;outline:0;margin:10px 0 15px}
+.section{font-size:19px;font-weight:750;margin:20px 0 10px}.quick{display:grid;grid-template-columns:1fr 1fr;gap:9px}.quick button{text-align:left;background:#18181e;padding:12px;border-radius:12px;font-weight:650}.quick b{display:block;font-size:18px;margin-bottom:3px}.muted{color:#90909b;font-size:12px}
+.row{display:flex;gap:12px;align-items:center;padding:9px 2px;border-bottom:1px solid #1a1a20}.art{width:54px;height:54px;border-radius:9px;background:linear-gradient(135deg,#383842,#16161b);display:grid;place-items:center;font-size:23px;flex:none;overflow:hidden}.art img{width:100%;height:100%;object-fit:cover}.meta{min-width:0;flex:1}.title{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.artist{font-size:13px;color:#90909b;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.icon{background:transparent;font-size:20px;padding:8px}.fab{background:#fff;color:#08080a;border-radius:50%;width:50px;height:50px;font-size:25px;font-weight:700;position:fixed;right:22px;bottom:150px;z-index:5;box-shadow:0 8px 25px #0008}
+.player{position:fixed;left:10px;right:10px;bottom:10px;background:#1a1a20f5;border:1px solid #303039;border-radius:18px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));backdrop-filter:blur(20px);z-index:6;box-shadow:0 12px 40px #0009}.now{display:flex;align-items:center;gap:10px}.now .art{width:48px;height:48px}.controls{display:flex;justify-content:center;align-items:center;gap:18px;margin-top:4px}.controls button{background:transparent;font-size:20px;padding:6px}.play{background:#fff!important;color:#111!important;width:44px;height:44px;border-radius:50%;font-size:18px!important}.range{width:100%;height:4px;accent-color:#fff}.tabs{display:flex;gap:8px;margin:4px 0 15px}.tab{padding:9px 14px;border-radius:20px;background:#18181e;color:#aaa}.tab.active{background:#fff;color:#111}.empty{text-align:center;padding:35px 20px;border:1px dashed #33343d;border-radius:17px;color:#999}.file{display:none}
+dialog{background:#17171d;color:#fff;border:1px solid #34343d;border-radius:18px;width:min(92%,420px);padding:20px}dialog::backdrop{background:#000b}dialog input{width:100%;background:#0e0e12;border:1px solid #30303a;color:white;padding:12px;border-radius:10px;margin:8px 0 15px}dialog button{background:#292930;padding:10px 14px;border-radius:10px;margin-right:7px}.primary{background:#fff!important;color:#111!important}
+</style>
+<meta name="theme-color" content="#121212">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="My Music">
+<link rel="manifest" href="manifest.json">
+
+</head>
+<body>
+<header><h1>My Music</h1><div class="sub">Your music. Your device. No ads.</div></header>
+<main>
+<input id="search" class="search" placeholder="What do you want to play?">
+<div class="tabs"><button id="homeTab" class="tab active">Home</button><button id="libraryTab" class="tab">Your Library</button><button id="likedTab" class="tab">Liked</button></div>
+<section id="home"><div class="section">Quick picks</div><div class="quick"><button onclick="showLibrary()"><b>🎵 Your Music</b><span class="muted">All imported tracks</span></button><button onclick="showLiked()"><b>♥ Liked Songs</b><span class="muted">Your favourites</span></button></div><div class="section">Recently added</div><div id="recent"></div></section>
+<section id="library" hidden><div class="section">Your Library</div><div id="libraryList"></div></section>
+<section id="liked" hidden><div class="section">Liked Songs</div><div id="likedList"></div></section>
+</main>
+<button class="fab" id="add">+</button><input id="files" class="file" type="file" accept="audio/*" multiple>
+<dialog id="playlistDialog"><h2>New playlist</h2><input id="playlistName" placeholder="Playlist name"><button id="cancel">Cancel</button><button class="primary" id="create">Create</button></dialog>
+<div class="player"><div class="now"><div class="art" id="nowArt">♫</div><div class="meta"><div class="title" id="nowTitle">Nothing playing</div><div class="artist" id="nowArtist">Import your music to begin</div></div><button class="icon" id="likeNow">♡</button></div><input id="progress" class="range" type="range" min="0" max="100" value="0"><div class="controls"><button id="shuffle">🔀</button><button id="prev">⏮</button><button id="play" class="play">▶</button><button id="next">⏭</button><button id="repeat">🔁</button></div></div>
+<audio id="audio" preload="metadata"></audio>
+<script>
+const DB='my-music-v2',STORE='tracks';let tracks=[],current=-1,shuffle=false,repeat=false,objectUrl=null;
+const $=id=>document.getElementById(id),audio=$('audio');
+function openDB(){return new Promise((res,rej)=>{let r=indexedDB.open(DB,1);r.onupgradeneeded=()=>r.result.createObjectStore(STORE,{keyPath:'id',autoIncrement:true});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+async function all(){let d=await openDB();return new Promise((res,rej)=>{let r=d.transaction(STORE,'readonly').objectStore(STORE).getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+async function put(x){let d=await openDB();return new Promise((res,rej)=>{let r=d.transaction(STORE,'readwrite').objectStore(STORE).put(x);r.onsuccess=res;r.onerror=rej})}
+async function addFiles(fs){for(const f of fs){let d=await openDB();await new Promise((res,rej)=>{let r=d.transaction(STORE,'readwrite').objectStore(STORE).add({name:f.name.replace(/\.[^.]+$/,''),artist:'Local file',blob:f,liked:false,added:Date.now()});r.onsuccess=res;r.onerror=rej})}tracks=await all();render()}
+function art(x){return x.cover?`<img src="${x.cover}">`:'♫'}
+function row(x){return `<div class="row"><div class="art">${art(x)}</div><div class="meta"><div class="title">${esc(x.name)}</div><div class="artist">${esc(x.artist)}</div></div><button class="icon" onclick="toggleLike(${x.id})">${x.liked?'♥':'♡'}</button><button class="icon" onclick="playId(${x.id})">▶</button></div>`}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function filtered(arr){let q=$('search').value.toLowerCase();return arr.filter(x=>(x.name+' '+x.artist).toLowerCase().includes(q))}
+function render(){let r=[...tracks].sort((a,b)=>(b.added||0)-(a.added||0));$('recent').innerHTML=r.slice(0,8).map(row).join('')||empty();$('libraryList').innerHTML=filtered(r).map(row).join('')||empty();$('likedList').innerHTML=filtered(r.filter(x=>x.liked)).map(row).join('')||empty()}
+function empty(){return '<div class="empty">Nothing here yet.<br><br>Tap <b>+</b> to add music you own.</div>'}
+async function toggleLike(id){let x=tracks.find(t=>t.id===id);x.liked=!x.liked;await put(x);render();update()}
+async function playId(id){current=tracks.findIndex(x=>x.id===id);if(current<0)return;if(objectUrl)URL.revokeObjectURL(objectUrl);objectUrl=URL.createObjectURL(tracks[current].blob);audio.src=objectUrl;await audio.play();update()}
+function update(){let x=tracks[current];if(!x)return;$('nowTitle').textContent=x.name;$('nowArtist').textContent=x.artist;$('nowArt').innerHTML=art(x);$('likeNow').textContent=x.liked?'♥':'♡';$('play').textContent=audio.paused?'▶':'Ⅱ'}
+function show(sec){['home','library','liked'].forEach(x=>$(x).hidden=x!==sec);['homeTab','libraryTab','likedTab'].forEach(x=>$(x).classList.remove('active'));$(sec+'Tab').classList.add('active')}
+function showLibrary(){show('library')}function showLiked(){show('liked')}
+$('homeTab').onclick=()=>show('home');$('libraryTab').onclick=showLibrary;$('likedTab').onclick=showLiked;$('search').oninput=render;
+$('add').onclick=()=>$('files').click();$('files').onchange=e=>addFiles(e.target.files);
+$('play').onclick=()=>{if(current<0&&tracks.length)playId(tracks[0].id);else audio.paused?audio.play():audio.pause();update()};
+$('prev').onclick=()=>{if(!tracks.length)return;current=(current-1+tracks.length)%tracks.length;playId(tracks[current].id)};
+$('next').onclick=()=>{if(!tracks.length)return;let n=shuffle?Math.floor(Math.random()*tracks.length):(current+1)%tracks.length;playId(tracks[n].id)};
+$('shuffle').onclick=()=>{shuffle=!shuffle;$('shuffle').style.opacity=shuffle?1:.5};$('repeat').onclick=()=>{repeat=!repeat;$('repeat').style.opacity=repeat?1:.5};
+$('likeNow').onclick=()=>current>=0&&toggleLike(tracks[current].id);
+audio.onplay=audio.onpause=update;audio.ontimeupdate=()=>$('progress').value=audio.duration?audio.currentTime/audio.duration*100:0;
+$('progress').oninput=e=>{if(audio.duration)audio.currentTime=audio.duration*e.target.value/100};
+audio.onended=()=>repeat?playId(tracks[current].id):$('next').click();
+all().then(x=>{tracks=x;render()});if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js');
+</script></body></html>
